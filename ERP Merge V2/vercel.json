@@ -1,0 +1,11 @@
+{
+  "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "functions": {
+    "api/fetch.js": {
+      "maxDuration": 30
+    }
+  }
+}

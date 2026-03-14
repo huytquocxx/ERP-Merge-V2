@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERP Merge V2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --sans: 'IBM Plex Sans', sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --bg:       #F7F6F3;
+  --surface:  #FFFFFF;
+  --border:   #E0DED8;
+  --border2:  #C8C6C0;
+  --text:     #1A1A18;
+  --muted:    #4A4A46;
+  --hint:     #9E9E96;
+  --amber:    #BA7517;
+  --amber-l:  #FAEEDA;
+  --amber-d:  #854F0B;
+  --amber-t:  #EF9F27;
+  --green-bg: #EAF3DE;
+  --green-bd: #97C459;
+  --green-t:  #3B6D11;
+  --red-bg:   #FCEBEB;
+  --red-bd:   #F09595;
+  --red-t:    #A32D2D;
+  --s4-bg:    #E1F5EE;
+  --s4-bd:    #5DCAA5;
+  --s4-t:     #085041;
+  --ecc-bg:   #E6F1FB;
+  --ecc-bd:   #85B7EB;
+  --ecc-t:    #0C447C;
+  --r-md: 8px;
+  --r-lg: 12px;
+}
+
+/* ── Dark mode ── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:      #1A1A18;
+    --surface: #242422;
+    --border:  #2E2E2C;
+    --border2: #3A3A38;
+    --text:    #F0EEE8;
+    --muted:   #B4B2A8;
+    --hint:    #6B6B65;
+    --amber-l: #2C1E06;
+    --green-bg:#0D1F06;
+    --green-bd:#3B6D11;
+    --green-t: #C0DD97;
+    --red-bg:  #1F0808;
+    --red-bd:  #A32D2D;
+    --red-t:   #F7C1C1;
+    --s4-bg:   #04342C;
+    --s4-bd:   #0F6E56;
+    --s4-t:    #9FE1CB;
+    --ecc-bg:  #042C53;
+    --ecc-bd:  #185FA5;
+    --ecc-t:   #B5D4F4;
+  }
+}
+
+html, body { height: 100%; background: var(--bg); font-family: var(--sans); color: var(--text); font-size: 14px; }
+
+/* ── Top header ── */
+.topbar {
+  background: #1A1A18;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand-name { font-family: var(--mono); font-size: 13px; font-weight: 500; color: #F0EEE8; letter-spacing: .04em; }
+.brand-tag  { font-family: var(--mono); font-size: 10px; color: #5F5E5A; letter-spacing: .06em; }
+.topbar-status { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11px; color: #5F5E5A; }
+.status-pip { width: 7px; height: 7px; border-radius: 50%; background: var(--amber-t); flex-shrink: 0; transition: background .4s; }
+.status-pip.ok { background: #639922; }
+
+/* ── Step nav ── */
+.stepnav {
+  background: #1A1A18;
+  border-bottom: 1px solid #2C2C28;
+  padding: 0 24px;
+  display: flex;
+  align-items: stretch;
+}
+.step {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 20px 10px 0; margin-right: 20px;
+  border-bottom: 2px solid transparent;
+  cursor: pointer; opacity: .4; transition: opacity .15s;
+}
+.step.active { opacity: 1; border-bottom-color: var(--amber-t); }
+.step.done   { opacity: .65; }
+.step-num    { font-family: var(--mono); font-size: 10px; color: var(--amber-t); }
+.step-label  { font-size: 12px; font-weight: 500; color: #F0EEE8; }
+.step-sep    { color: #2C2C28; display: flex; align-items: center; font-size: 14px; margin-right: 20px; }
+
+/* ── Page content ── */
+.page { display: none; padding: 24px; max-width: 960px; margin: 0 auto; flex-direction: column; gap: 14px; }
+.page.active { display: flex; }
+
+/* ── Grid ── */
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.row4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+
+/* ── Source card ── */
+.src-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r-lg); overflow: hidden; transition: border-color .15s; }
+.src-card.is-priority { border-color: var(--amber-t); }
+.src-card-head { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 0.5px solid var(--border); transition: background .15s; }
+.src-card-head.is-priority { background: color-mix(in srgb, var(--amber-l) 30%, transparent); }
+.src-card-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.card-name { font-size: 12px; font-weight: 500; color: var(--text); }
+
+/* ── Badge ── */
+.badge { font-family: var(--mono); font-size: 10px; padding: 2px 8px; border-radius: 3px; font-weight: 500; }
+.badge-s4  { background: var(--s4-bg);  color: var(--s4-t);  border: 0.5px solid var(--s4-bd); }
+.badge-ecc { background: var(--ecc-bg); color: var(--ecc-t); border: 0.5px solid var(--ecc-bd); }
+.badge-ok  { background: var(--green-bg); color: var(--green-t); border: 0.5px solid var(--green-bd); }
+
+/* ── Radio ── */
+.radio-wrap { display: flex; align-items: center; gap: 6px; cursor: pointer; margin-left: auto; user-select: none; }
+.radio-outer { width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid var(--border2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: border-color .15s; }
+.radio-outer.checked { border-color: var(--amber); }
+.radio-inner { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); display: none; }
+.radio-outer.checked .radio-inner { display: block; }
+.radio-label { font-size: 11px; font-family: var(--mono); color: var(--hint); transition: color .15s; }
+.radio-outer.checked + .radio-label { color: var(--amber); }
+
+/* ── Mode toggle ── */
+.mode-toggle { display: flex; border: 0.5px solid var(--border); border-radius: var(--r-md); overflow: hidden; width: fit-content; }
+.mode-opt { padding: 5px 13px; font-size: 11px; font-family: var(--mono); cursor: pointer; color: var(--hint); background: var(--bg); border-right: 0.5px solid var(--border); transition: all .12s; }
+.mode-opt:last-child { border-right: none; }
+.mode-opt.on { background: var(--surface); color: var(--text); font-weight: 500; }
+
+/* ── Drop zone ── */
+.drop { border: 0.5px dashed var(--border2); border-radius: var(--r-md); padding: 22px 12px; text-align: center; cursor: pointer; position: relative; transition: background .15s; }
+.drop:hover { background: var(--bg); }
+.drop input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.drop-label { font-size: 12px; color: var(--muted); }
+.drop-sub   { font-size: 11px; font-family: var(--mono); color: var(--hint); margin-top: 4px; }
+
+/* ── URL input ── */
+.url-area { display: flex; flex-direction: column; gap: 6px; }
+.url-input { width: 100%; padding: 8px 10px; font-size: 11px; font-family: var(--mono); background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--r-md); color: var(--text); outline: none; transition: border-color .15s; }
+.url-input:focus { border-color: var(--amber-t); box-shadow: 0 0 0 2px color-mix(in srgb, var(--amber-t) 15%, transparent); }
+.url-note { font-size: 10px; font-family: var(--mono); color: var(--hint); line-height: 1.6; }
+
+/* ── State indicators ── */
+.state-box { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: var(--r-md); }
+.state-ok   { background: var(--green-bg); border: 0.5px solid var(--green-bd); }
+.state-wait { background: var(--amber-l);  border: 0.5px solid var(--amber-t); }
+.state-err  { background: var(--red-bg);   border: 0.5px solid var(--red-bd); }
+.sdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.sdot-ok   { background: #639922; }
+.sdot-wait { background: var(--amber-t); }
+.sdot-err  { background: #E24B4A; }
+.stext-ok   { font-size: 11px; font-family: var(--mono); color: var(--green-t); }
+.stext-wait { font-size: 11px; font-family: var(--mono); color: #633806; }
+.stext-err  { font-size: 11px; font-family: var(--mono); color: var(--red-t); }
+
+/* ── Priority callout ── */
+.pri-callout { display: flex; align-items: flex-start; gap: 9px; padding: 10px 14px; border-radius: var(--r-md); background: var(--amber-l); border: 0.5px solid var(--amber-t); font-size: 11px; font-family: var(--mono); color: #633806; line-height: 1.6; }
+.pc-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); flex-shrink: 0; margin-top: 3px; }
+
+/* ── Generic card ── */
+.card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r-lg); padding: 14px 16px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 0.5px solid var(--border); }
+.card-title { font-size: 12px; font-weight: 500; color: var(--text); }
+
+/* ── Section label ── */
+.sec-label { font-size: 10px; font-family: var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--hint); margin-bottom: 8px; }
+
+/* ── Chips ── */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-family: var(--mono); cursor: pointer; border: 0.5px solid var(--border2); background: var(--bg); color: var(--hint); transition: all .12s; user-select: none; }
+.chip:hover { border-color: var(--amber-t); color: var(--text); }
+.chip.on { background: var(--amber-l); border-color: var(--amber-t); color: #633806; }
+
+/* ── Validation rows ── */
+.val-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 0.5px solid var(--border); font-size: 12px; color: var(--muted); }
+.val-row:last-child { border-bottom: none; }
+.vdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.vok  { background: #639922; }
+.verr { background: #E24B4A; }
+.vres { font-family: var(--mono); font-size: 11px; color: var(--text); margin-left: auto; }
+
+/* ── Metric cards ── */
+.metric { background: var(--bg); border-radius: var(--r-md); padding: 12px 14px; border: 0.5px solid var(--border); }
+.metric-val { font-size: 24px; font-weight: 500; font-family: var(--mono); color: var(--text); line-height: 1.1; }
+.metric-lbl { font-size: 10px; color: var(--hint); text-transform: uppercase; letter-spacing: .06em; margin-top: 4px; }
+.m-match .metric-val { color: #0F6E56; }
+.m-pri   .metric-val { color: var(--amber); }
+
+/* ── Tabs ── */
+.tabs { display: flex; border-bottom: 0.5px solid var(--border); margin-bottom: 12px; }
+.tab { padding: 7px 16px; font-size: 12px; color: var(--hint); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -0.5px; transition: color .15s; }
+.tab:hover { color: var(--muted); }
+.tab.on { color: var(--amber); border-bottom-color: var(--amber); font-weight: 500; }
+
+/* ── Table ── */
+.tbl-wrap { overflow-x: auto; border: 0.5px solid var(--border); border-radius: var(--r-md); }
+.tbl-meta { font-size: 11px; font-family: var(--mono); color: var(--hint); margin-bottom: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; font-family: var(--mono); }
+th { padding: 7px 10px; text-align: left; color: var(--hint); border-bottom: 0.5px solid var(--border); font-weight: 400; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; background: var(--bg); }
+td { padding: 7px 10px; color: var(--muted); border-bottom: 0.5px solid var(--border); white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--bg); }
+.td-key { color: var(--text) !important; font-weight: 500; }
+.tag-s4  { display: inline-block; padding: 1px 6px; background: var(--s4-bg);  color: var(--s4-t);  border-radius: 3px; font-size: 10px; }
+.tag-ecc { display: inline-block; padding: 1px 6px; background: var(--ecc-bg); color: var(--ecc-t); border-radius: 3px; font-size: 10px; }
+
+/* ── Expander ── */
+.expander { border: 0.5px solid var(--border); border-radius: var(--r-md); overflow: hidden; margin-top: 8px; }
+.exp-head { padding: 9px 14px; font-size: 12px; font-family: var(--mono); color: var(--muted); cursor: pointer; background: var(--bg); display: flex; justify-content: space-between; transition: background .12s; }
+.exp-head:hover { background: var(--surface); }
+.exp-body { padding: 10px 14px; font-size: 11px; font-family: var(--mono); color: var(--muted); display: none; line-height: 1.8; word-break: break-all; border-top: 0.5px solid var(--border); }
+
+/* ── Buttons ── */
+.btn-primary { padding: 10px 22px; background: var(--amber); border: none; border-radius: var(--r-md); font-size: 13px; font-weight: 500; color: #fff; cursor: pointer; font-family: var(--sans); transition: background .15s; letter-spacing: .01em; }
+.btn-primary:hover { background: var(--amber-d); }
+.btn-primary:disabled { background: var(--border2); color: var(--hint); cursor: not-allowed; }
+.btn-secondary { padding: 8px 16px; border: 0.5px solid var(--border2); border-radius: var(--r-md); font-size: 12px; background: var(--surface); color: var(--text); cursor: pointer; font-family: var(--sans); transition: background .15s; }
+.btn-secondary:hover { background: var(--bg); }
+.btn-dl { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 10px; background: var(--surface); border: 0.5px solid var(--border2); border-radius: var(--r-md); font-size: 12px; color: var(--text); cursor: pointer; font-family: var(--sans); transition: background .15s; }
+.btn-dl:hover { background: var(--bg); }
+.btn-dl:disabled { color: var(--hint); cursor: not-allowed; }
+
+/* ── Nav row ── */
+.nav-row { display: flex; justify-content: space-between; align-items: center; }
+
+/* ── Note ── */
+.note { font-size: 11px; font-family: var(--mono); color: var(--hint); background: var(--bg); border-left: 2px solid var(--border2); padding: 9px 12px; line-height: 1.7; border-radius: 0; }
+
+/* ── Run log ── */
+.run-log { font-size: 11px; font-family: var(--mono); color: var(--hint); min-height: 16px; margin-top: 4px; }
+
+/* ── Spinning dot for loading ── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { width: 10px; height: 10px; border: 1.5px solid var(--border2); border-top-color: var(--amber); border-radius: 50%; animation: spin .6s linear infinite; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- Top header -->
+<div class="topbar">
+  <div class="brand">
+    <span class="brand-name">ERP Merge V2</span>
+    <span class="brand-tag">S/4HANA · ECC · Master data</span>
+  </div>
+  <div class="topbar-status">
+    <div class="status-pip" id="status-pip"></div>
+    <span id="status-text">ready</span>
+  </div>
+</div>
+
+<!-- Step nav -->
+<div class="stepnav">
+  <div class="step active" id="nav0" onclick="goTo(0)">
+    <span class="step-num">01</span><span class="step-label">Data input</span>
+  </div>
+  <span class="step-sep">›</span>
+  <div class="step" id="nav1" onclick="goTo(1)">
+    <span class="step-num">02</span><span class="step-label">Preview</span>
+  </div>
+  <span class="step-sep">›</span>
+  <div class="step" id="nav2" onclick="goTo(2)">
+    <span class="step-num">03</span><span class="step-label">Run merge</span>
+  </div>
+  <span class="step-sep">›</span>
+  <div class="step" id="nav3" onclick="goTo(3)">
+    <span class="step-num">04</span><span class="step-label">Results</span>
+  </div>
+</div>
+
+<!-- ── PAGE 1: Data input ── -->
+<div class="page active" id="page0">
+  <div class="row2">
+
+    <!-- S4 card -->
+    <div class="src-card is-priority" id="card-s4">
+      <div class="src-card-head is-priority" id="head-s4">
+        <span class="badge badge-s4">S/4HANA</span>
+        <span class="card-name">S4 master data</span>
+        <div class="radio-wrap" onclick="setPriority('s4')" title="Set S4 as priority source">
+          <div class="radio-outer checked" id="radio-s4"><div class="radio-inner"></div></div>
+          <span class="radio-label" id="rlabel-s4">priority</span>
+        </div>
+      </div>
+      <div class="src-card-body">
+        <div class="mode-toggle">
+          <div class="mode-opt on" id="s4-mu" onclick="setMode('s4','upload')">Upload</div>
+          <div class="mode-opt" id="s4-murl" onclick="setMode('s4','url')">URL / Google Sheets</div>
+        </div>
+        <div id="s4-upload-area">
+          <div class="drop">
+            <input type="file" accept=".xlsx,.xls" onchange="loadFile(event,'s4')">
+            <div class="drop-label">Drop or click to upload</div>
+            <div class="drop-sub">.xlsx · .xls</div>
+          </div>
+        </div>
+        <div id="s4-url-area" style="display:none" class="url-area">
+          <input class="url-input" id="s4-url" placeholder="https://docs.google.com/spreadsheets/d/…">
+          <div class="url-note">Set sharing to "Anyone with the link can view." Fetched securely via server proxy when you click Next.</div>
+        </div>
+        <div id="s4-state" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- ECC card -->
+    <div class="src-card" id="card-ecc">
+      <div class="src-card-head" id="head-ecc">
+        <span class="badge badge-ecc">ECC</span>
+        <span class="card-name">ECC master data</span>
+        <div class="radio-wrap" onclick="setPriority('ecc')" title="Set ECC as priority source">
+          <div class="radio-outer" id="radio-ecc"><div class="radio-inner"></div></div>
+          <span class="radio-label" id="rlabel-ecc">priority</span>
+        </div>
+      </div>
+      <div class="src-card-body">
+        <div class="mode-toggle">
+          <div class="mode-opt on" id="ecc-mu" onclick="setMode('ecc','upload')">Upload</div>
+          <div class="mode-opt" id="ecc-murl" onclick="setMode('ecc','url')">URL / Google Sheets</div>
+        </div>
+        <div id="ecc-upload-area">
+          <div class="drop">
+            <input type="file" accept=".xlsx,.xls" onchange="loadFile(event,'ecc')">
+            <div class="drop-label">Drop or click to upload</div>
+            <div class="drop-sub">.xlsx · .xls</div>
+          </div>
+        </div>
+        <div id="ecc-url-area" style="display:none" class="url-area">
+          <input class="url-input" id="ecc-url" placeholder="https://docs.google.com/spreadsheets/d/…">
+          <div class="url-note">Set sharing to "Anyone with the link can view." Fetched securely via server proxy when you click Next.</div>
+        </div>
+        <div id="ecc-state" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pri-callout" id="pri-callout">
+    <div class="pc-dot"></div>
+    <span id="pri-callout-text">S4 (S/4HANA) wins on overlap — recommended for migrations where S4 data has been validated</span>
+  </div>
+
+  <div class="nav-row">
+    <div></div>
+    <button class="btn-primary" id="next0-btn" onclick="handleNext0()">Next: preview ›</button>
+  </div>
+</div>
+
+<!-- ── PAGE 2: Preview ── -->
+<div class="page" id="page1">
+  <div class="row2">
+    <div>
+      <div class="sec-label" id="s4-plabel">S4</div>
+      <div class="tbl-wrap"><div id="s4-ptable" style="padding:12px;font-size:11px;font-family:var(--mono);color:var(--hint)">No data loaded.</div></div>
+    </div>
+    <div>
+      <div class="sec-label" id="ecc-plabel">ECC</div>
+      <div class="tbl-wrap"><div id="ecc-ptable" style="padding:12px;font-size:11px;font-family:var(--mono);color:var(--hint)">No data loaded.</div></div>
+    </div>
+  </div>
+  <div class="nav-row">
+    <button class="btn-secondary" onclick="goTo(0)">‹ Back</button>
+    <button class="btn-primary" onclick="goTo(2)">Next: run merge ›</button>
+  </div>
+</div>
+
+<!-- ── PAGE 3: Run merge ── -->
+<div class="page" id="page2">
+  <div class="pri-callout" id="p3-banner"><div class="pc-dot"></div><span id="p3-text"></span></div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-title">Key field configuration</span></div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Select one or more columns to match records across S4 and ECC. The priority source wins on overlap.</div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-title">Validation</span></div>
+    <div id="val-rows"></div>
+  </div>
+
+  <button class="btn-primary" id="runbtn" style="width:100%" onclick="runMerge()" disabled>Run merge process</button>
+  <div class="run-log" id="run-log"></div>
+
+  <div class="nav-row">
+    <button class="btn-secondary" onclick="goTo(1)">‹ Back</button>
+    <div></div>
+  </div>
+</div>
+
+<!-- ── PAGE 4: Results ── -->
+<div class="page" id="page3">
+  <div class="pri-callout" id="p4-banner"><div class="pc-dot"></div><span id="p4-text"></span></div>
+
+  <div class="row4" id="metrics4"></div>
+  <div class="row3" id="metrics4b"></div>
+
+  <div class="card">
+    <div class="tabs">
+      <div class="tab on" onclick="switchTab(0)">MDtable — unique records</div>
+      <div class="tab" onclick="switchTab(1)">MDmapping — all records</div>
+    </div>
+    <div class="tbl-meta" id="tab-meta"></div>
+    <div class="tbl-wrap" id="tab-content"></div>
+  </div>
+
+  <div id="expanders"></div>
+
+  <div class="row2">
+    <button class="btn-dl" id="dl-mdtable" onclick="downloadExcel('mdtable')">↓ &nbsp;Download MDtable.xlsx</button>
+    <button class="btn-dl" id="dl-mdmapping" onclick="downloadExcel('mdmapping')">↓ &nbsp;Download MDmapping.xlsx</button>
+  </div>
+
+  <div class="nav-row">
+    <button class="btn-secondary" onclick="goTo(2)">‹ Back</button>
+    <div></div>
+  </div>
+</div>
+
+<script>
+// ── App state ──────────────────────────────────────────────────────────────
+var S = {
+  s4: [], ecc: [],
+  s4cols: [], ecccols: [],
+  modes: { s4: 'upload', ecc: 'upload' },
+  fetched: { s4: false, ecc: false },
+  selectedKeys: [],
+  priority: 's4',
+  mdtable: [], mdmapping: [], summary: {}
+};
+
+// ── Priority ───────────────────────────────────────────────────────────────
+function setPriority(p) {
+  S.priority = p;
+  var isS4 = p === 's4';
+  ['s4', 'ecc'].forEach(function(s) {
+    var on = s === 's4' ? isS4 : !isS4;
+    document.getElementById('card-' + s).classList.toggle('is-priority', on);
+    document.getElementById('head-' + s).classList.toggle('is-priority', on);
+    document.getElementById('radio-' + s).classList.toggle('checked', on);
+    document.getElementById('rlabel-' + s).style.color = on ? 'var(--amber)' : '';
+  });
+  document.getElementById('pri-callout-text').textContent = isS4
+    ? 'S4 (S/4HANA) wins on overlap — recommended for migrations where S4 data has been validated'
+    : 'ECC wins on overlap — use when ECC records are more current or S4 data is not yet validated';
+  updateBanners();
+}
+
+function updateBanners() {
+  var msg = 'Priority: ' + (S.priority === 's4' ? 'S4 (S/4HANA)' : 'ECC') + ' wins on overlap';
+  ['p3-text', 'p4-text'].forEach(function(id) {
+    document.getElementById(id).textContent = msg;
+  });
+}
+
+// ── Input mode toggle ──────────────────────────────────────────────────────
+function setMode(src, mode) {
+  S.modes[src] = mode;
+  S.fetched[src] = false;
+  document.getElementById(src + '-mu').classList.toggle('on', mode === 'upload');
+  document.getElementById(src + '-murl').classList.toggle('on', mode === 'url');
+  document.getElementById(src + '-upload-area').style.display = mode === 'upload' ? 'block' : 'none';
+  document.getElementById(src + '-url-area').style.display = mode === 'url' ? 'flex' : 'none';
+  if (mode === 'upload') setState(src, 'hide');
+}
+
+// ── State indicator ────────────────────────────────────────────────────────
+function setState(src, type, msg) {
+  var el = document.getElementById(src + '-state');
+  if (type === 'hide') { el.style.display = 'none'; return; }
+  var map = {
+    ok:   { box: 'state-ok',   dot: 'sdot-ok',   tcls: 'stext-ok' },
+    wait: { box: 'state-wait', dot: 'sdot-wait',  tcls: 'stext-wait' },
+    err:  { box: 'state-err',  dot: 'sdot-err',   tcls: 'stext-err' }
+  };
+  var m = map[type];
+  el.style.display = 'flex';
+  el.className = 'state-box ' + m.box;
+  el.style.alignItems = 'center';
+  el.style.gap = '8px';
+  var icon = type === 'wait'
+    ? '<div class="spinner"></div>'
+    : '<div class="sdot ' + m.dot + '"></div>';
+  el.innerHTML = icon + '<span class="' + m.tcls + '">' + msg + '</span>';
+}
+
+// ── File upload ────────────────────────────────────────────────────────────
+function loadFile(e, src) {
+  var f = e.target.files[0]; if (!f) return;
+  setState(src, 'wait', 'Reading file…');
+  var r = new FileReader();
+  r.onload = function(ev) {
+    try {
+      parseBuffer(ev.target.result, src, 'binary');
+    } catch(err) {
+      setState(src, 'err', 'Could not read file: ' + err.message);
+    }
+  };
+  r.readAsBinaryString(f);
+}
+
+// ── URL fetch (via Vercel proxy) ───────────────────────────────────────────
+function fetchUrl(src) {
+  return new Promise(function(resolve, reject) {
+    var raw = document.getElementById(src + '-url').value.trim();
+    if (!raw) { resolve(false); return; }
+    if (S.fetched[src] && (src === 's4' ? S.s4.length : S.ecc.length)) {
+      resolve(true); return;
+    }
+    setState(src, 'wait', 'Fetching via proxy…');
+    var proxyUrl = '/api/fetch?url=' + encodeURIComponent(raw);
+    fetch(proxyUrl)
+      .then(function(r) {
+        if (!r.ok) return r.json().then(function(j) { throw new Error(j.error || 'HTTP ' + r.status); });
+        return r.arrayBuffer();
+      })
+      .then(function(buf) {
+        try {
+          parseBuffer(buf, src, 'array');
+          S.fetched[src] = true;
+          resolve(true);
+        } catch(err) {
+          setState(src, 'err', 'Could not parse file: ' + err.message);
+          reject(err);
+        }
+      })
+      .catch(function(err) {
+        setState(src, 'err', err.message || 'Fetch failed. Check the URL is publicly accessible.');
+        reject(err);
+      });
+  });
+}
+
+function parseBuffer(buf, src, type) {
+  var wb = XLSX.read(buf, { type: type });
+  var ws = wb.Sheets[wb.SheetNames[0]];
+  var data = XLSX.utils.sheet_to_json(ws, { defval: '' });
+  var cols = data.length ? Object.keys(data[0]) : [];
+  if (src === 's4') { S.s4 = data; S.s4cols = cols; }
+  else              { S.ecc = data; S.ecccols = cols; }
+  setState(src, 'ok', data.length + ' rows · ' + cols.length + ' columns loaded');
+  setStatus(null, null);
+}
+
+// ── Handle Next on step 1 ─────────────────────────────────────────────────
+function handleNext0() {
+  var btn = document.getElementById('next0-btn');
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+  var fetches = [];
+  if (S.modes.s4 === 'url') fetches.push(fetchUrl('s4'));
+  if (S.modes.ecc === 'url') fetches.push(fetchUrl('ecc'));
+  Promise.all(fetches)
+    .then(function() {
+      btn.disabled = false;
+      btn.textContent = 'Next: preview ›';
+      rebuildChips();
+      renderPreview();
+      goTo(1);
+    })
+    .catch(function() {
+      btn.disabled = false;
+      btn.textContent = 'Next: preview ›';
+    });
+}
+
+// ── Merge logic ────────────────────────────────────────────────────────────
+function normalizeKey(v) { return String(v == null ? '' : v).trim().toUpperCase(); }
+
+function compositeKey(row, fields) {
+  return fields.map(function(f) { return normalizeKey(row[f]); }).join('|');
+}
+
+function mdgKey(row, fields) {
+  return fields.map(function(f) { return normalizeKey(row[f]); }).filter(Boolean).join('-');
+}
+
+function rebuildChips() {
+  var all = Array.from(new Set([].concat(S.s4cols, S.ecccols))).sort();
+  S.selectedKeys = S.selectedKeys.filter(function(k) { return all.includes(k); });
+  if (!S.selectedKeys.length && all.length) S.selectedKeys = [all[0]];
+  document.getElementById('chips').innerHTML = all.map(function(k) {
+    return '<div class="chip' + (S.selectedKeys.includes(k) ? ' on' : '') +
+      '" onclick="toggleKey(\'' + k + '\',this)">' + k + '</div>';
+  }).join('');
+  renderValidation();
+}
+
+function toggleKey(k, el) {
+  var i = S.selectedKeys.indexOf(k);
+  if (i >= 0) S.selectedKeys.splice(i, 1); else S.selectedKeys.push(k);
+  el.classList.toggle('on');
+  renderValidation();
+}
+
+function renderValidation() {
+  var keys = S.selectedKeys;
+  var s4ok  = S.s4.length > 0 && keys.length > 0 && keys.every(function(k) { return S.s4cols.includes(k); });
+  var eccok = S.ecc.length > 0 && keys.length > 0 && keys.every(function(k) { return S.ecccols.includes(k); });
+  var ready = s4ok && eccok;
+  document.getElementById('val-rows').innerHTML =
+    vrow(S.s4.length  > 0, S.s4.length  ? S.s4.length  + ' rows' : 'not loaded', 'S4 dataset') +
+    vrow(S.ecc.length > 0, S.ecc.length ? S.ecc.length + ' rows' : 'not loaded', 'ECC dataset') +
+    vrow(keys.length  > 0, keys.length  ? keys.join(' | ') : 'none selected', 'Key fields') +
+    vrow(ready, ready ? 'ready to merge' : 'check key fields', 'Keys present in both datasets');
+  document.getElementById('runbtn').disabled = !ready;
+}
+
+function vrow(ok, res, label) {
+  return '<div class="val-row"><div class="vdot ' + (ok ? 'vok' : 'verr') + '"></div>' +
+    '<span>' + label + '</span><span class="vres">' + res + '</span></div>';
+}
+
+function runMerge() {
+  var btn = document.getElementById('runbtn');
+  btn.disabled = true;
+  var log = document.getElementById('run-log');
+  var p = S.priority.toUpperCase();
+  var steps = ['Normalizing keys…', 'Applying priority: ' + p + '…', 'Building MDtable…', 'Building MDmapping…', 'Done.'];
+  var i = 0;
+  var t = setInterval(function() {
+    log.textContent = steps[i]; i++;
+    if (i >= steps.length) { clearInterval(t); doMerge(); btn.disabled = false; }
+  }, 280);
+}
+
+function doMerge() {
+  var keys = S.selectedKeys;
+  var priority = S.priority;
+  var prefix = 'ERP';
+
+  var s4  = S.s4.map(function(r)  { return Object.assign({}, r, { _key: compositeKey(r, keys), MDGKey: mdgKey(r, keys), _src: 'S4' }); });
+  var ecc = S.ecc.map(function(r) { return Object.assign({}, r, { _key: compositeKey(r, keys), MDGKey: mdgKey(r, keys), _src: 'ECC' }); });
+
+  var s4keys  = new Set(s4.map(function(r)  { return r._key; }));
+  var ecckeys = new Set(ecc.map(function(r) { return r._key; }));
+
+  var overlap  = Array.from(s4keys).filter(function(k) { return ecckeys.has(k); });
+  var s4only   = Array.from(s4keys).filter(function(k) { return !ecckeys.has(k); });
+  var ecconly  = Array.from(ecckeys).filter(function(k) { return !s4keys.has(k); });
+
+  var primary     = priority === 's4' ? s4 : ecc;
+  var secondary   = priority === 's4' ? ecc : s4;
+  var primaryKeys = priority === 's4' ? s4keys : ecckeys;
+
+  var raw = primary.slice();
+  secondary.filter(function(r) { return !primaryKeys.has(r._key); }).forEach(function(r) { raw.push(r); });
+  var seen = new Set();
+  raw = raw.filter(function(r) { if (seen.has(r._key)) return false; seen.add(r._key); return true; });
+
+  var allcols = Array.from(new Set([].concat(S.s4cols, S.ecccols))).sort();
+  var mdmapping = [].concat(s4, ecc).map(function(r) {
+    var rec = { MDGKey: r.MDGKey, ERPSystem: r._src };
+    allcols.forEach(function(c) { rec[prefix + c] = r[c] == null ? '' : r[c]; });
+    return rec;
+  });
+
+  var cleanCols = allcols.filter(function(c) { return c !== '_key' && c !== '_src' && c !== 'MDGKey'; });
+  S.mdtable = raw.map(function(r) {
+    var o = { MDGKey: r.MDGKey };
+    cleanCols.forEach(function(c) { o[c] = r[c] == null ? '' : r[c]; });
+    return o;
+  });
+  S.mdmapping = mdmapping;
+  S.summary = {
+    s4: s4.length, ecc: ecc.length,
+    mdt: S.mdtable.length, mdm: mdmapping.length,
+    overlap: overlap.length, s4only: s4only.length, ecconly: ecconly.length,
+    overlapList: overlap.sort(), s4onlyList: s4only.sort(), ecconlyList: ecconly.sort(),
+    priority: priority
+  };
+  renderResults();
+  updateBanners();
+  setStatus(true, 'merge complete');
+  goTo(3);
+}
+
+// ── Render helpers ─────────────────────────────────────────────────────────
+function renderPreview() {
+  rtable('s4-ptable',  's4-plabel',  S.s4,  S.s4cols,  5, 'S4');
+  rtable('ecc-ptable', 'ecc-plabel', S.ecc, S.ecccols, 5, 'ECC');
+}
+
+function rtable(tid, lid, data, cols, limit, label) {
+  if (lid) document.getElementById(lid).textContent =
+    (label ? label + ' — ' : '') + data.length + ' rows · ' + cols.length + ' cols  (showing ' + Math.min(limit || data.length, data.length) + ')';
+  var el = document.getElementById(tid);
+  if (!data.length) {
+    el.innerHTML = '<div style="padding:12px;font-size:11px;font-family:var(--mono);color:var(--hint)">No data loaded.</div>';
+    return;
+  }
+  var rows = limit ? data.slice(0, limit) : data;
+  el.innerHTML = '<table><thead><tr>' + cols.map(function(c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+    rows.map(function(r) {
+      return '<tr>' + cols.map(function(c, i) {
+        var v = r[c] == null ? '' : String(r[c]);
+        return '<td class="' + (i === 0 ? 'td-key' : '') + '">' + esc(v) + '</td>';
+      }).join('') + '</tr>';
+    }).join('') + '</tbody></table>';
+}
+
+function renderResults() {
+  var s = S.summary;
+  document.getElementById('metrics4').innerHTML =
+    metric(s.s4, 'S4 records') + metric(s.ecc, 'ECC records') +
+    metric(s.mdt, 'MDtable rows') + metric(s.mdm, 'MDmapping rows');
+  document.getElementById('metrics4b').innerHTML =
+    '<div class="metric m-match">' + metricIn(s.overlap, 'Matching keys') + '</div>' +
+    '<div class="metric m-pri">'   + metricIn(s.priority === 's4' ? s.s4only : s.ecconly, (s.priority === 's4' ? 'S4' : 'ECC') + '-only keys') + '</div>' +
+    '<div class="metric">'         + metricIn(s.priority === 's4' ? s.ecconly : s.s4only, (s.priority === 's4' ? 'ECC' : 'S4') + '-only keys') + '</div>';
+  var exp = '';
+  if (s.overlapList.length) exp += xp('Matching keys (' + s.overlapList.length + ')', s.overlapList.join(', '));
+  if (s.s4onlyList.length)  exp += xp('S4-only keys (' + s.s4onlyList.length + ')',   s.s4onlyList.join(', '));
+  if (s.ecconlyList.length) exp += xp('ECC-only keys (' + s.ecconlyList.length + ')', s.ecconlyList.join(', '));
+  document.getElementById('expanders').innerHTML = exp;
+  activeTab = 0;
+  document.querySelectorAll('.tab').forEach(function(t, i) { t.classList.toggle('on', i === 0); });
+  showTab();
+}
+
+function metric(v, l)    { return '<div class="metric"><div class="metric-val">' + v + '</div><div class="metric-lbl">' + l + '</div></div>'; }
+function metricIn(v, l)  { return '<div class="metric-val">' + v + '</div><div class="metric-lbl">' + l + '</div>'; }
+function xp(label, body) {
+  return '<div class="expander"><div class="exp-head" onclick="var b=this.nextSibling;b.style.display=b.style.display===\'block\'?\'none\':\'block\'">' +
+    esc(label) + '<span>+</span></div><div class="exp-body">' + esc(body) + '</div></div>';
+}
+
+var activeTab = 0;
+function switchTab(i) {
+  activeTab = i;
+  document.querySelectorAll('.tab').forEach(function(t, idx) { t.classList.toggle('on', idx === i); });
+  showTab();
+}
+function showTab() {
+  if (activeTab === 0) {
+    var cols = S.mdtable.length ? Object.keys(S.mdtable[0]) : [];
+    document.getElementById('tab-meta').textContent = S.mdtable.length + ' rows · ' + S.summary.priority.toUpperCase() + ' priority applied';
+    rtable('tab-content', null, S.mdtable, cols, null, '');
+  } else {
+    var cols = S.mdmapping.length ? Object.keys(S.mdmapping[0]) : [];
+    document.getElementById('tab-meta').textContent = S.mdmapping.length + ' rows · all records with ERP prefix';
+    rtable('tab-content', null, S.mdmapping, cols, null, '');
+  }
+}
+
+function downloadExcel(which) {
+  var data = which === 'mdtable' ? S.mdtable : S.mdmapping;
+  if (!data.length) return;
+  var ws = XLSX.utils.json_to_sheet(data);
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+  XLSX.writeFile(wb, (which === 'mdtable' ? 'MDtable' : 'MDmapping') + '_priority-' + S.priority + '.xlsx');
+}
+
+// ── Navigation ─────────────────────────────────────────────────────────────
+function goTo(i) {
+  document.querySelectorAll('.page').forEach(function(p, idx) { p.classList.toggle('active', idx === i); });
+  document.querySelectorAll('.step').forEach(function(s, idx) {
+    s.classList.remove('active', 'done');
+    if (idx === i) s.classList.add('active');
+    else if (idx < i) s.classList.add('done');
+  });
+  if (i === 1) renderPreview();
+  if (i === 2) { rebuildChips(); renderValidation(); updateBanners(); }
+}
+
+// ── Status bar ─────────────────────────────────────────────────────────────
+function setStatus(ok, msg) {
+  var pip = document.getElementById('status-pip');
+  var txt = document.getElementById('status-text');
+  pip.classList.toggle('ok', !!ok);
+  if (msg) txt.textContent = msg;
+}
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
