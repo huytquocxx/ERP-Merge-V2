@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="logic.js"></script>
 <style>
 /* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -632,15 +633,15 @@ tr:hover td { background: var(--bg-secondary); }
       <div class="src-card-head is-priority" id="head-s4">
         <span class="badge badge-s4">S/4HANA</span>
         <span class="card-name">S4 master data</span>
-        <div class="radio-wrap" onclick="setPriority('s4')" title="Set S4 as priority source">
+        <div class="radio-wrap" onclick="setPriority('s4')" onkeydown="if(event.key==='Enter'||event.key===' ')setPriority('s4')" role="radio" aria-checked="true" tabindex="0" title="Set S4 as priority source">
           <div class="radio-outer checked" id="radio-s4"><div class="radio-inner"></div></div>
           <span class="radio-label" id="rlabel-s4">priority</span>
         </div>
       </div>
       <div class="src-card-body">
-        <div class="mode-toggle">
-          <div class="mode-opt on" id="s4-mu" onclick="setMode('s4','upload')">Upload</div>
-          <div class="mode-opt" id="s4-murl" onclick="setMode('s4','url')">URL / Google Sheets</div>
+        <div class="mode-toggle" role="tablist">
+          <div class="mode-opt on" id="s4-mu" onclick="setMode('s4','upload')" role="tab" aria-selected="true" tabindex="0">Upload</div>
+          <div class="mode-opt" id="s4-murl" onclick="setMode('s4','url')" role="tab" aria-selected="false" tabindex="0">URL / Google Sheets</div>
         </div>
         <div id="s4-upload-area">
           <div class="drop">
@@ -662,15 +663,15 @@ tr:hover td { background: var(--bg-secondary); }
       <div class="src-card-head" id="head-ecc">
         <span class="badge badge-ecc">ECC</span>
         <span class="card-name">ECC master data</span>
-        <div class="radio-wrap" onclick="setPriority('ecc')" title="Set ECC as priority source">
+        <div class="radio-wrap" onclick="setPriority('ecc')" onkeydown="if(event.key==='Enter'||event.key===' ')setPriority('ecc')" role="radio" aria-checked="false" tabindex="0" title="Set ECC as priority source">
           <div class="radio-outer" id="radio-ecc"><div class="radio-inner"></div></div>
           <span class="radio-label" id="rlabel-ecc">priority</span>
         </div>
       </div>
       <div class="src-card-body">
-        <div class="mode-toggle">
-          <div class="mode-opt on" id="ecc-mu" onclick="setMode('ecc','upload')">Upload</div>
-          <div class="mode-opt" id="ecc-murl" onclick="setMode('ecc','url')">URL / Google Sheets</div>
+        <div class="mode-toggle" role="tablist">
+          <div class="mode-opt on" id="ecc-mu" onclick="setMode('ecc','upload')" role="tab" aria-selected="true" tabindex="0">Upload</div>
+          <div class="mode-opt" id="ecc-murl" onclick="setMode('ecc','url')" role="tab" aria-selected="false" tabindex="0">URL / Google Sheets</div>
         </div>
         <div id="ecc-upload-area">
           <div class="drop">
@@ -810,11 +811,37 @@ function updateBanners() {
 function setMode(src, mode) {
   S.modes[src] = mode;
   S.fetched[src] = false;
-  document.getElementById(src + '-mu').classList.toggle('on', mode === 'upload');
-  document.getElementById(src + '-murl').classList.toggle('on', mode === 'url');
+  var mu = document.getElementById(src + '-mu');
+  var murl = document.getElementById(src + '-murl');
+  mu.classList.toggle('on', mode === 'upload');
+  murl.classList.toggle('on', mode === 'url');
+  mu.setAttribute('aria-selected', mode === 'upload');
+  murl.setAttribute('aria-selected', mode === 'url');
+  
   document.getElementById(src + '-upload-area').style.display = mode === 'upload' ? 'block' : 'none';
   document.getElementById(src + '-url-area').style.display = mode === 'url' ? 'flex' : 'none';
   if (mode === 'upload') setState(src, 'hide');
+}
+
+// Add keyboard support to mode toggles
+document.querySelectorAll('.mode-opt').forEach(function(el) {
+  el.onkeydown = function(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      var src = el.id.split('-')[0];
+      var mode = el.id.split('-')[1] === 'mu' ? 'upload' : 'url';
+      setMode(src, mode);
+    }
+  };
+});
+
+function isValidUrl(raw) {
+  try {
+    const url = new URL(raw);
+    const allowed = ['docs.google.com', 'drive.google.com', 'sheets.googleapis.com'];
+    return allowed.some(h => url.hostname === h || url.hostname.endsWith('.' + h));
+  } catch {
+    return false;
+  }
 }
 
 // ── State indicator ────────────────────────────────────────────────────────
@@ -895,7 +922,6 @@ function parseBuffer(buf, src, type) {
   setStatus(null, null);
 }
 
-// ── Handle Next on step 1 ─────────────────────────────────────────────────
 function handleNext0() {
   var btn = document.getElementById('next0-btn');
   btn.disabled = true;
@@ -917,24 +943,14 @@ function handleNext0() {
     });
 }
 
-// ── Merge logic ────────────────────────────────────────────────────────────
-function normalizeKey(v) { return String(v == null ? '' : v).trim().toUpperCase(); }
-
-function compositeKey(row, fields) {
-  return fields.map(function(f) { return normalizeKey(row[f]); }).join('|');
-}
-
-function mdgKey(row, fields) {
-  return fields.map(function(f) { return normalizeKey(row[f]); }).filter(Boolean).join('-');
-}
-
 function rebuildChips() {
   var all = Array.from(new Set([].concat(S.s4cols, S.ecccols))).sort();
   S.selectedKeys = S.selectedKeys.filter(function(k) { return all.includes(k); });
   if (!S.selectedKeys.length && all.length) S.selectedKeys = [all[0]];
   document.getElementById('chips').innerHTML = all.map(function(k) {
-    return '<div class="chip' + (S.selectedKeys.includes(k) ? ' on' : '') +
-      '" onclick="toggleKey(\'' + k + '\',this)">' + k + '</div>';
+    var on = S.selectedKeys.includes(k);
+    return '<div class="chip' + (on ? ' on' : '') +
+      '" onclick="toggleKey(\'' + k + '\',this)" onkeydown="if(event.key===\'Enter\'||event.key===\' \')toggleKey(\'' + k + '\',this)" role="checkbox" aria-checked="' + on + '" tabindex="0">' + k + '</div>';
   }).join('');
   renderValidation();
 }
@@ -943,6 +959,7 @@ function toggleKey(k, el) {
   var i = S.selectedKeys.indexOf(k);
   if (i >= 0) S.selectedKeys.splice(i, 1); else S.selectedKeys.push(k);
   el.classList.toggle('on');
+  el.setAttribute('aria-checked', el.classList.contains('on'));
   renderValidation();
 }
 
@@ -980,48 +997,12 @@ function runMerge() {
 function doMerge() {
   var keys = S.selectedKeys;
   var priority = S.priority;
-  var prefix = 'ERP';
+  const result = performMerge(S.s4, S.ecc, keys, priority);
+  
+  S.mdtable = result.mdtable;
+  S.mdmapping = result.mdmapping;
+  S.summary = result.summary;
 
-  var s4  = S.s4.map(function(r)  { return Object.assign({}, r, { _key: compositeKey(r, keys), MDGKey: mdgKey(r, keys), _src: 'S4' }); });
-  var ecc = S.ecc.map(function(r) { return Object.assign({}, r, { _key: compositeKey(r, keys), MDGKey: mdgKey(r, keys), _src: 'ECC' }); });
-
-  var s4keys  = new Set(s4.map(function(r)  { return r._key; }));
-  var ecckeys = new Set(ecc.map(function(r) { return r._key; }));
-
-  var overlap  = Array.from(s4keys).filter(function(k) { return ecckeys.has(k); });
-  var s4only   = Array.from(s4keys).filter(function(k) { return !ecckeys.has(k); });
-  var ecconly  = Array.from(ecckeys).filter(function(k) { return !s4keys.has(k); });
-
-  var primary     = priority === 's4' ? s4 : ecc;
-  var secondary   = priority === 's4' ? ecc : s4;
-  var primaryKeys = priority === 's4' ? s4keys : ecckeys;
-
-  var raw = primary.slice();
-  secondary.filter(function(r) { return !primaryKeys.has(r._key); }).forEach(function(r) { raw.push(r); });
-  var seen = new Set();
-  raw = raw.filter(function(r) { if (seen.has(r._key)) return false; seen.add(r._key); return true; });
-
-  var allcols = Array.from(new Set([].concat(S.s4cols, S.ecccols))).sort();
-  var mdmapping = [].concat(s4, ecc).map(function(r) {
-    var rec = { MDGKey: r.MDGKey, ERPSystem: r._src };
-    allcols.forEach(function(c) { rec[prefix + c] = r[c] == null ? '' : r[c]; });
-    return rec;
-  });
-
-  var cleanCols = allcols.filter(function(c) { return c !== '_key' && c !== '_src' && c !== 'MDGKey'; });
-  S.mdtable = raw.map(function(r) {
-    var o = { MDGKey: r.MDGKey };
-    cleanCols.forEach(function(c) { o[c] = r[c] == null ? '' : r[c]; });
-    return o;
-  });
-  S.mdmapping = mdmapping;
-  S.summary = {
-    s4: s4.length, ecc: ecc.length,
-    mdt: S.mdtable.length, mdm: mdmapping.length,
-    overlap: overlap.length, s4only: s4only.length, ecconly: ecconly.length,
-    overlapList: overlap.sort(), s4onlyList: s4only.sort(), ecconlyList: ecconly.sort(),
-    priority: priority
-  };
   renderResults();
   updateBanners();
   setStatus(true, 'merge complete');
