@@ -1,49 +1,6 @@
 # ERP Merge V2
 
 Merges SAP S/4HANA and ECC country master data files into consolidated MDtable and MDmapping outputs.
-
-## Stack
-
-- **Frontend:** Single HTML file — IBM Plex fonts, SheetJS for Excel parsing and download
-- **Backend:** One Vercel serverless function (`/api/fetch.js`) as a CORS proxy for Google Sheets URLs
-- **Hosting:** Vercel (free tier)
-
-## Project structure
-
-```
-erp-merge-v2/
-├── api/
-│   └── fetch.js        # Vercel serverless proxy — fetches Google Sheets server-side
-├── public/
-│   └── index.html      # Full app (UI + merge logic)
-└── vercel.json         # Routing config
-```
-
-## Deploy to Vercel
-
-### 1. Push to GitHub
-
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-gh repo create erp-merge-v2 --private --push --source=.
-```
-
-### 2. Deploy on Vercel
-
-1. Go to [vercel.com](https://vercel.com) and sign in
-2. Click **Add New → Project**
-3. Import your `erp-merge-v2` repo
-4. Leave all settings as default — Vercel auto-detects the config
-5. Click **Deploy**
-
-Your app will be live at `https://erp-merge-v2.vercel.app` (or similar).
-
-### 3. Share with your team
-
-Send them the Vercel URL. No installation, no Python, no setup.
-
 ## How it works
 
 | Step | What happens |
